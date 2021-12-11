@@ -1,0 +1,1 @@
+Simple Flask server that return stock data using yfinance
