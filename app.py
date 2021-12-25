@@ -14,4 +14,9 @@ def testpost():
     input_json = request.get_json(force=True) 
     ticker_name = input_json['ticker_symbol']
     ticker = yf.Ticker(ticker_name)
-    return jsonify(ticker.info)
+    if ('symbol' not in ticker.info):
+        return jsonify({
+            'error': "Ticker symbol not found"
+        })
+    else:
+        return jsonify(ticker.info)
