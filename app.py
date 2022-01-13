@@ -58,7 +58,7 @@ def getInfo():
         {
             "status": "ok" or "error",
             "data": can be [...] or {...}, default is {}
-            "errors": {
+            "error": {
                 "code": "",
                 "name": "",
                 "description": ""
