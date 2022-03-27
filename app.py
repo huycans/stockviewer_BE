@@ -22,13 +22,14 @@ def getInfo():
     # .to_json(orient="split", date_format="epoch", date_unit="ms")
     close_price_history_obj = ticker.history(
         period="max", interval="1d")["Close"]
-    # transform price history into array of [<time>, <price>]
-    close_price_history_arr = []
+    
+    # transform time format to milliseconds to fit highcharts format
     # an array of int64 epoch time in milliseconds
     epoch_time_arr = close_price_history_obj.index.astype(np.int64)
     epoch_time_arr = (epoch_time_arr/1000000).astype(np.int64)
 
-    # create an array like this: [<time>, <price>]
+    # array to store price history in the shape of [[<time>, <price>], ...]
+    close_price_history_arr = []    
     for idx, time in enumerate(epoch_time_arr):
         price = close_price_history_obj.values[idx]
         close_price_history_arr.append([time, price])
@@ -66,6 +67,60 @@ def getInfo():
         }
         '''
 
+@app.route('/get_list', methods=["POST"])
+def getList():
+    input_json = request.get_json(force=True)
+    ticker_list = input_json['ticker_list']
+    
+    # ticker names ticker_list should be all caps, separated by space
+    # if name do not exist, yfinance will eliminate it  
+    download = yf.download(
+        tickers = ticker_list,
+        # use "period" instead of start/end
+        # valid periods: 1d,5d,1mo,3mo,6mo,1y,2y,5y,10y,ytd,max
+        # (optional, default is '1mo')
+        period = "1y",
+        # fetch data by interval (including intraday if period < 60 days)
+        # valid intervals: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
+        # (optional, default is '1d')
+        interval = "1mo",
+        # group by ticker (to access via data['SPY'])
+        # (optional, default is 'column')
+        group_by = 'column',
+        # adjust all OHLC automatically
+        # (optional, default is False)
+        auto_adjust = True,
+    )
+    
+    # use only Close price column
+    close_column = download["Close"]
+    # drop a row if  it contains only NaN and fill
+    close_column = close_column.dropna(axis='index', how='all')
+    close_column = close_column.fillna(axis='index', value=0)
+    
+    # convert timestamps from nanosec to millisec
+    epoch_time_list = (close_column.index.astype(np.int64)/1000000).astype(np.int64).tolist()
+
+    # get a list of columns, aka ticker names from the Close column
+    ticker_name_arr = close_column.columns
+    
+    # create a dict with this format: 
+    # {
+    #   <ticker_name>: [price_history],...
+    # }
+    close_price_history = {}
+    for ticker in (ticker_name_arr):
+        close_price_history[ticker] = close_column[ticker].tolist()
+    
+    return jsonify({
+        "status": "ok",
+            "data": {
+                "timestamps":  epoch_time_list,
+                "ticker_price_history": close_price_history
+            },
+            'error': {}
+    })
+    
 # this error handler will handle both HTTPException and normal Python's exceptions
 @app.errorhandler(Exception)
 def handle_exception(e):
