@@ -72,6 +72,7 @@ def getList():
     input_json = request.get_json(force=True)
     ticker_list = input_json['ticker_list']
     
+    # STAGE 1: fetch price history on monthly basis
     # ticker names ticker_list should be all caps, separated by space
     # if name do not exist, yfinance will eliminate it  
     download = yf.download(
@@ -112,14 +113,25 @@ def getList():
     for ticker in (ticker_name_arr):
         close_price_history[ticker] = close_column[ticker].tolist()
     
+    # TODO: concurrency, fetch these two in parallel
+    # STAGE 2: fetch tickers info
+    info = {}
+    tickers = yf.Tickers(ticker_list);
+    for ticker in tickers.tickers:
+      info[ticker] = tickers.tickers[ticker].info
+    
+    
     return jsonify({
         "status": "ok",
             "data": {
                 "timestamps":  epoch_time_list,
-                "ticker_price_history": close_price_history
+                "tickers_price_history": close_price_history,
+                "info": info,
             },
             'error': {}
     })
+    
+    # error handling for unknown symbols
     
 # this error handler will handle both HTTPException and normal Python's exceptions
 @app.errorhandler(Exception)
