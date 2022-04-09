@@ -99,6 +99,10 @@ def getList():
     close_column = close_column.dropna(axis='index', how='all')
     close_column = close_column.fillna(axis='index', value=0)
     
+    # remove the last row if the date of that row is not the beginning of the month
+    if (close_column.index[-1].day != 1):
+      close_column = close_column[:-1]
+    
     # convert timestamps from nanosec to millisec
     epoch_time_list = (close_column.index.astype(np.int64)/1000000).astype(np.int64).tolist()
 
@@ -113,7 +117,7 @@ def getList():
     for ticker in (ticker_name_arr):
         close_price_history[ticker] = close_column[ticker].tolist()
     
-    # TODO: concurrency, fetch these two in parallel
+    # TODO: concurrency, should fetch price history and info in parallel
     # STAGE 2: fetch tickers info
     info = {}
     tickers = yf.Tickers(ticker_list);
@@ -137,6 +141,7 @@ def getList():
 @app.errorhandler(Exception)
 def handle_exception(e):
     # pass through HTTP errors
+    print(e)
     if isinstance(e, HTTPException):
         response = e.get_response()
         # replace the body with JSON
