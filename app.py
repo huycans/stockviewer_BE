@@ -95,9 +95,8 @@ def getList():
     
     # use only Close price column
     close_column = download["Close"]
-    # drop a row if  it contains only NaN and fill
-    close_column = close_column.dropna(axis='index', how='all')
-    close_column = close_column.fillna(axis='index', value=0)
+    # drop a row if any column contains NaN
+    close_column = close_column.dropna(axis='index', how='any')
     
     # remove the last row if the date of that row is not the beginning of the month
     if (close_column.index[-1].day != 1):
