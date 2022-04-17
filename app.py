@@ -1,11 +1,13 @@
 from flask import Flask, json, request, jsonify, Response, send_from_directory, render_template
 from werkzeug.exceptions import HTTPException
-# from flask_cors import CORS
+from flask_cors import CORS
 import yfinance as yf
 import numpy as np
+import pandas as pd
+import yfinance.shared as yf_shared
 
 app = Flask(__name__, static_url_path='', static_folder='frontend/build')
-# CORS(app) # comment out when deploy
+CORS(app) # comment out when deploy
 
 
 @app.route("/", defaults={'path':''})
@@ -77,6 +79,7 @@ def getInfo():
 def getList():
     input_json = request.get_json(force=True)
     ticker_list = input_json['ticker_list']
+    # TODO: bug when  ticker_list has only 1 ticker?
     
     # STAGE 1: fetch price history on monthly basis
     # ticker names ticker_list should be all caps, separated by space
@@ -101,18 +104,26 @@ def getList():
     
     # use only Close price column
     close_column = download["Close"]
-    # drop a row if any column contains NaN
+    
+    # check if any of the tickers in the list is invalid based on what yf.download is returning
+    invalid_tickers = list(yf_shared._ERRORS.keys()) # this contains a list of invalid tickers
+    if (len(invalid_tickers) > 0):
+        close_column = close_column.drop(columns=invalid_tickers) # drop columns that are invalid
+        
+    # drop a row if that row contains any NaN
     close_column = close_column.dropna(axis='index', how='any')
     
     # remove the last row if the date of that row is not the beginning of the month
     if (close_column.index[-1].day != 1):
       close_column = close_column[:-1]
     
+    #cast index column as datetimeindex
+    close_column.index = pd.to_datetime(close_column.index)
     # convert timestamps from nanosec to millisec
     epoch_time_list = (close_column.index.astype(np.int64)/1000000).astype(np.int64).tolist()
 
     # get a list of columns, aka ticker names from the Close column
-    ticker_name_arr = close_column.columns
+    ticker_name_arr = list(close_column.columns)
     
     # create a dict with this format: 
     # {
@@ -128,10 +139,9 @@ def getList():
     # TODO: concurrency, should fetch price history and info in parallel
     # STAGE 2: fetch tickers info
     info = {}
-    tickers = yf.Tickers(ticker_list);
+    tickers = yf.Tickers(ticker_name_arr);
     for ticker in tickers.tickers:
       info[ticker] = tickers.tickers[ticker].info
-    
     
     return jsonify({
         "status": "ok",
@@ -140,7 +150,11 @@ def getList():
                 "tickers_price_history": close_price_ratio_history,
                 "info": info,
             },
-            'error': {}
+            'error': {
+                "code": 404,
+                "name": "Tickers not found",
+                "description": invalid_tickers,
+            }
     })
     
     # error handling for unknown symbols
@@ -149,6 +163,7 @@ def getList():
 @app.errorhandler(Exception)
 def handle_exception(e):
     # pass through HTTP errors
+    print("Error encountered: ")
     print(e)
     if isinstance(e, HTTPException):
         response = e.get_response()
@@ -173,6 +188,6 @@ def handle_exception(e):
             'error': {
                 "code": 500,
                 "name": "Server error",
-                "description": "Server has encountered an error. Please try again.",
+                "description": e,
             }
         }), status=500, mimetype='application/json')
