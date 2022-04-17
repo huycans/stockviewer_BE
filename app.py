@@ -1,13 +1,13 @@
 from flask import Flask, json, request, jsonify, Response, send_from_directory, render_template
 from werkzeug.exceptions import HTTPException
-from flask_cors import CORS
+# from flask_cors import CORS
 import yfinance as yf
 import numpy as np
 import pandas as pd
 import yfinance.shared as yf_shared
 
 app = Flask(__name__, static_url_path='', static_folder='frontend/build')
-CORS(app) # comment out when deploy
+# CORS(app) # comment out when deploy
 
 
 @app.route("/", defaults={'path':''})
@@ -79,11 +79,11 @@ def getInfo():
 def getList():
     input_json = request.get_json(force=True)
     ticker_list = input_json['ticker_list']
-    # TODO: bug when  ticker_list has only 1 ticker?
     
     # STAGE 1: fetch price history on monthly basis
     # ticker names ticker_list should be all caps, separated by space
     # if name do not exist, yfinance will eliminate it  
+    # TODO: bug when  ticker_list has only 1 ticker? because it return a series, not dataframe
     download = yf.download(
         tickers = ticker_list,
         # use "period" instead of start/end
