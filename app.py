@@ -1,13 +1,13 @@
 from flask import Flask, json, request, jsonify, Response, send_from_directory, render_template
 from werkzeug.exceptions import HTTPException
-from flask_cors import CORS
+# from flask_cors import CORS
 import yfinance as yf
 import numpy as np
 import pandas as pd
 import yfinance.shared as yf_shared
 
 app = Flask(__name__, static_url_path='', static_folder='frontend/build')
-CORS(app)  # comment out when deploy
+# CORS(app)  # comment out when deploy
 
 
 @app.route("/", defaults={'path': ''})
